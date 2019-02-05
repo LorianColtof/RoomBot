@@ -1,6 +1,5 @@
 import requests
 import logging
-import click
 import telegram
 import traceback
 import dateutil.parser
@@ -9,6 +8,7 @@ from requests.exceptions import HTTPError
 from collections import namedtuple
 from telegram.ext import Updater, CommandHandler
 from functools import wraps
+from settings import Settings
 
 
 RoomReaction = namedtuple(
@@ -97,22 +97,26 @@ def protect(f):
     return wrapper
 
 
-@click.command()
-@click.option('--username', '-u', type=str, required=True)
-@click.option('--password', '-p', type=str, required=True)
-@click.option('--tg-bot-token', '-t', type=str, required=True)
-def main(username, password, tg_bot_token):
+def main():
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO)
 
-    chat_id = None
-    reactions = None
+    settings = Settings('settings.yml')
+    username = settings['ROOM_USERNAME']
+    password = settings['ROOM_PASSWORD']
+    tg_bot_token = settings['TG_BOT_TOKEN']
+
+    chat_id = settings['TG_CHAT_ID'] if 'TG_CHAT_ID' in settings else None
+    session = create_session(username, password)
+    reactions = get_active_reactions(session)
 
     @protect
     def tg_start(bot, update):
         nonlocal chat_id, reactions
+
         chat_id = update.message.chat_id
+        settings['TG_CHAT_ID'] = chat_id
 
         session = create_session(username, password)
         reactions = get_active_reactions(session)
