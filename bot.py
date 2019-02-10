@@ -111,6 +111,8 @@ def main():
     session = create_session(username, password)
     reactions = get_active_reactions(session)
 
+    retrieve_error_count = 0
+
     @protect
     def tg_start(bot, update):
         nonlocal chat_id, reactions
@@ -149,7 +151,7 @@ def main():
                              parse_mode=telegram.ParseMode.MARKDOWN)
 
     def tg_send_messages(bot, job):
-        nonlocal chat_id, reactions
+        nonlocal chat_id, reactions, retrieve_error_count
 
         if not chat_id or not reactions:
             return
@@ -159,15 +161,21 @@ def main():
                 session = create_session(username, password)
                 new_reactions = get_active_reactions(session)
             except Exception as e:
-                bot.send_message(chat_id=chat_id,
-                                 text="Could not retrieve reactions")
-                bot.send_message(chat_id=chat_id,
-                                 text=f"```{repr(e)}```",
-                                 parse_mode=telegram.ParseMode.MARKDOWN)
+                retrieve_error_count += 1
+
+                # Only send a message when an error occurs three times in a row
+                if retrieve_error_count >= 3:
+                    bot.send_message(chat_id=chat_id,
+                                     text="Could not retrieve reactions")
+                    bot.send_message(chat_id=chat_id,
+                                     text=f"```{repr(e)}```",
+                                     parse_mode=telegram.ParseMode.MARKDOWN)
                 return
 
+            retrieve_error_count = 0
+
             if new_reactions != reactions:
-                text = "One or more reactions have changed:\n\n"
+                messages = []
 
                 vanished_ids = set(reactions.keys()) - set(
                     new_reactions.keys())
@@ -177,11 +185,11 @@ def main():
 
                 for _id in vanished_ids:
                     reaction = reactions[_id]
-                    text += f"Reaction *{reaction.address}* is gone.\n\n"
+                    messages.append(f"Reaction *{reaction.address}* is gone.")
 
                 for _id in new_ids:
                     reaction = new_reactions[_id]
-                    text += f"New reaction on *{reaction.address}*:\n" + \
+                    text = f"New reaction on *{reaction.address}*:\n" + \
                         f"   Status: {reaction.status}\n" + \
                         f"   My position: {reaction.position}"
 
@@ -189,7 +197,7 @@ def main():
                         text += "\n   Offered to candidate: " + \
                             f"{reaction.offered_position}"
 
-                    text += "\n\n"
+                    messages.append(text)
 
                 for _id in common_ids:
                     old_reaction = reactions[_id]
@@ -220,14 +228,28 @@ def main():
                             details_text += "   (was previously offered " + \
                                 "to candidate {})\n".format(
                                     old_reaction.offered_position)
+
+                    if old_reaction.position != new_reaction.position:
+                        notify = True
+                        details_text += "   Position changed: {} -> {}\n" \
+                            .format(old_reaction.position,
+                                    new_reaction.position)
+
                     if notify:
-                        text += f"Reaction *{new_reaction.address}*:\n" + \
+                        text = f"Reaction *{new_reaction.address}*:\n" + \
                             details_text
+                        messages.append(text)
+
+                if len(messages) > 0:
+                    bot.send_message(chat_id=chat_id,
+                                     text="One or more reactions have changed:"
+                                     )
+                    for msg in messages:
+                        bot.send_message(
+                            chat_id=chat_id,
+                            text=msg, parse_mode=telegram.ParseMode.MARKDOWN)
 
                 reactions = new_reactions
-
-                bot.send_message(chat_id=chat_id, text=text,
-                                 parse_mode=telegram.ParseMode.MARKDOWN)
 
         except Exception:
             bot.send_message(chat_id=chat_id, text="Something went wrong!",
