@@ -14,7 +14,7 @@ from settings import Settings
 RoomReaction = namedtuple(
     'RoomReaction', ['status', 'address', 'position',
                      'offered_position', 'amount_reactions',
-                     'closing_date'])
+                     'area', 'closing_date', 'url_key'])
 
 
 def check_response(response):
@@ -78,7 +78,8 @@ def get_active_reactions(session):
 
         data[room['id']] = RoomReaction(
             status, address, my_position,
-            offered_position, amount_reactions, closing_date)
+            offered_position, amount_reactions, room_data['areaDwelling'],
+            closing_date, room_data['urlKey'])
 
     return data
 
@@ -135,6 +136,7 @@ def main():
 
         for reaction in get_active_reactions(session).values():
             text = f"*{reaction.address}*\n" + \
+                f"   Area: {reaction.area} m²\n" + \
                 f"   Status: {reaction.status}\n" + \
                 f"   My position: {reaction.position}"
 
@@ -145,7 +147,11 @@ def main():
             if reaction.status == 'Gepubliceerd':
                 text += \
                     f"\n   Amount of reactions: {reaction.amount_reactions}" +\
-                    f"\n   Closing date: {reaction.closing_date}\n"
+                    f"\n   Closing date: {reaction.closing_date}"
+
+            text += "\n\n[Link](https://www.room.nl" + \
+                "/aanbod/studentenwoningen/details/{})".format(
+                    reaction.url_key)
 
             bot.send_message(chat_id=update.message.chat_id, text=text,
                              parse_mode=telegram.ParseMode.MARKDOWN)
