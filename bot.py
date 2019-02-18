@@ -14,7 +14,7 @@ from settings import Settings
 RoomReaction = namedtuple(
     'RoomReaction', ['status', 'address', 'position',
                      'offered_position', 'amount_reactions',
-                     'area', 'closing_date', 'url_key'])
+                     'area', 'closing_date', 'offer_closing_date', 'url_key'])
 
 
 def check_response(response):
@@ -70,8 +70,11 @@ def get_active_reactions(session):
         my_position = room['positie']
         if status == "Aangeboden":
             offered_position = room['huidigeAanbieding']['reactiePositie']
+            offer_closing_date = dateutil.parser.parse(
+                room['huidigeAanbieding']['uitersteReactiedatum'])
         else:
             offered_position = None
+            offer_closing_date = None
 
         amount_reactions = room['advertentie']['aantalReacties']
         closing_date = dateutil.parser.parse(room['object']['closingDate'])
@@ -79,7 +82,7 @@ def get_active_reactions(session):
         data[room['id']] = RoomReaction(
             status, address, my_position,
             offered_position, amount_reactions, room_data['areaDwelling'],
-            closing_date, room_data['urlKey'])
+            closing_date, offer_closing_date, room_data['urlKey'])
 
     return data
 
@@ -148,6 +151,9 @@ def main():
                 text += \
                     f"\n   Amount of reactions: {reaction.amount_reactions}" +\
                     f"\n   Closing date: {reaction.closing_date}"
+            elif reaction.status == 'Aangeboden':
+                text += \
+                    f"\n   Offer closing date: {reaction.offer_closing_date}"
 
             text += "\n\n[Link](https://www.room.nl" + \
                 "/aanbod/studentenwoningen/details/{})".format(
