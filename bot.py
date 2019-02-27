@@ -13,8 +13,13 @@ from settings import Settings
 
 RoomReaction = namedtuple(
     'RoomReaction', ['status', 'address', 'position',
-                     'offered_position', 'amount_reactions',
-                     'area', 'closing_date', 'offer_closing_date', 'url_key'])
+                     'offered_position',
+                     'offered_registration_date',
+                     'amount_reactions',
+                     'area', 'floor',
+                     'closing_date',
+                     'offer_closing_date',
+                     'url_key'])
 
 
 def check_response(response):
@@ -70,19 +75,27 @@ def get_active_reactions(session):
         my_position = room['positie']
         if status == "Aangeboden":
             offered_position = room['huidigeAanbieding']['reactiePositie']
+            offered_registration_date = room[
+                'huidigeAanbieding']['woningzoekendeInschrijfdatum']
             offer_closing_date = dateutil.parser.parse(
                 room['huidigeAanbieding']['uitersteReactiedatum'])
         else:
             offered_position = None
+            offered_registration_date = None
             offer_closing_date = None
+
+        floor = None
+        if 'floor' in room_data:
+            floor = room_data['floor']['localizedName']
 
         amount_reactions = room['advertentie']['aantalReacties']
         closing_date = dateutil.parser.parse(room['object']['closingDate'])
 
         data[room['id']] = RoomReaction(
             status, address, my_position,
-            offered_position, amount_reactions, room_data['areaDwelling'],
-            closing_date, offer_closing_date, room_data['urlKey'])
+            offered_position, offered_registration_date, amount_reactions,
+            room_data['areaDwelling'], floor, closing_date,
+            offer_closing_date, room_data['urlKey'])
 
     return data
 
@@ -139,13 +152,20 @@ def main():
 
         for reaction in get_active_reactions(session).values():
             text = f"*{reaction.address}*\n" + \
-                f"   Area: {reaction.area} m²\n" + \
-                f"   Status: {reaction.status}\n" + \
+                f"   Area: {reaction.area} m²\n"
+
+            if reaction.floor:
+                text += f"   Floor: {reaction.floor}\n"
+
+            text += f"   Status: {reaction.status}\n" + \
                 f"   My position: {reaction.position}"
 
             if reaction.offered_position:
                 text += \
-                    f"\n   Offered to candidate: {reaction.offered_position}"
+                    "\n   Offered to candidate: " + \
+                    f"{reaction.offered_position}" +\
+                    "\n   with registration date: " + \
+                    f"{reaction.offered_registration_date}"
 
             if reaction.status == 'Gepubliceerd':
                 text += \
