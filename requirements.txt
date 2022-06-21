@@ -22,7 +22,7 @@ pycparser==2.19
     # via cffi
 python-telegram-bot==11.1.0
     # via -r requirements.in
-pyyaml==5.1
+pyyaml==5.4
     # via -r requirements.in
 requests==2.21.0
     # via -r requirements.in
